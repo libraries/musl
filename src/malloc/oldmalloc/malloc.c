@@ -137,12 +137,8 @@ void __dump_heap(int x)
 
 static int traverses_stack_p(uintptr_t old, uintptr_t new)
 {
-	const uintptr_t len = 8<<20;
+	const uintptr_t len = PAGE_SIZE;
 	uintptr_t a, b;
-
-	b = (uintptr_t)libc.auxv;
-	a = b > len ? b-len : 0;
-	if (new>a && old<b) return 1;
 
 	b = (uintptr_t)&b;
 	a = b > len ? b-len : 0;
