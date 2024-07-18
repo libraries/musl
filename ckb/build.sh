@@ -16,7 +16,7 @@ rm -rf release/bin
 
 rm -rf release/lib/libgcc.a
 
-CKB_FILES=("crt1" "transform_syscall")
+CKB_FILES=("crt1" "hijack_syscall")
 for f in ${CKB_FILES[@]}; do
   $CLANG $BASE_FLAGS \
     -nostdinc -O2 \
@@ -27,4 +27,11 @@ for f in ${CKB_FILES[@]}; do
   "${CLANG/clang/llvm-ar}" rc release/lib/libgcc.a release/$f.o
 
   rm -rf release/$f.o
+done
+
+CKB_HEADERS=("musl_options")
+rm -rf release/include/ckb
+mkdir -p release/include/ckb
+for f in ${CKB_HEADERS[@]}; do
+  cp ckb/$f.h release/include/ckb/$f.h
 done

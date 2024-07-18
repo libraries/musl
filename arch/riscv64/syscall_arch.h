@@ -3,8 +3,8 @@
 
 #include <features.h>
 
-hidden long __ckb_transform_syscall(long n, long a, long b, long c, long d,
-                                    long e, long f, int *processed);
+hidden long __ckb_hijack_syscall(long n, long a, long b, long c, long d,
+                                 long e, long f, int *processed);
 
 #define __asm_syscall(...) \
 	__asm__ __volatile__ ("ecall\n\t" \
@@ -14,7 +14,7 @@ hidden long __ckb_transform_syscall(long n, long a, long b, long c, long d,
 static inline long __syscall0(long n)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, 0, 0, 0, 0, 0, 0, &processed);
+  long code = __ckb_hijack_syscall(n, 0, 0, 0, 0, 0, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -27,7 +27,7 @@ static inline long __syscall0(long n)
 static inline long __syscall1(long n, long a)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, 0, 0, 0, 0, 0, &processed);
+  long code = __ckb_hijack_syscall(n, a, 0, 0, 0, 0, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -40,7 +40,7 @@ static inline long __syscall1(long n, long a)
 static inline long __syscall2(long n, long a, long b)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, b, 0, 0, 0, 0, &processed);
+  long code = __ckb_hijack_syscall(n, a, b, 0, 0, 0, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -54,7 +54,7 @@ static inline long __syscall2(long n, long a, long b)
 static inline long __syscall3(long n, long a, long b, long c)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, b, c, 0, 0, 0, &processed);
+  long code = __ckb_hijack_syscall(n, a, b, c, 0, 0, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -69,7 +69,7 @@ static inline long __syscall3(long n, long a, long b, long c)
 static inline long __syscall4(long n, long a, long b, long c, long d)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, b, c, d, 0, 0, &processed);
+  long code = __ckb_hijack_syscall(n, a, b, c, d, 0, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -85,7 +85,7 @@ static inline long __syscall4(long n, long a, long b, long c, long d)
 static inline long __syscall5(long n, long a, long b, long c, long d, long e)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, b, c, d, e, 0, &processed);
+  long code = __ckb_hijack_syscall(n, a, b, c, d, e, 0, &processed);
   if (processed != 0) {
     return code;
   }
@@ -102,7 +102,7 @@ static inline long __syscall5(long n, long a, long b, long c, long d, long e)
 static inline long __syscall6(long n, long a, long b, long c, long d, long e, long f)
 {
   int processed = 0;
-  long code = __ckb_transform_syscall(n, a, b, c, d, e, f, &processed);
+  long code = __ckb_hijack_syscall(n, a, b, c, d, e, f, &processed);
   if (processed != 0) {
     return code;
   }

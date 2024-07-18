@@ -1,0 +1,185 @@
+#include <features.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/uio.h>
+
+#include "bits/syscall.h"
+#include "syscall_arch.h"
+
+struct syscall_context {
+  long n;
+  long a;
+  long b;
+  long c;
+  long d;
+  long e;
+  long f;
+  int *processed;
+};
+
+extern char _end[];
+
+static long default_brk_min = (long)_end;
+static long default_brk_max = 0x00300000;
+
+weak_alias(default_brk_min, __ckb_hijack_brk_min);
+weak_alias(default_brk_max, __ckb_hijack_brk_max);
+
+static long default_brk(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_brk) {
+    return (long)-1;
+  }
+
+  *(context->processed) = 1;
+  long a = context->a;
+  if (a == 0) {
+    return (long)__ckb_hijack_brk_min;
+  } else if ((a >= __ckb_hijack_brk_min) && (a <= __ckb_hijack_brk_max)) {
+    return a;
+  } else {
+    return (long)-1;
+  }
+}
+weak_alias(default_brk, __ckb_hijack_brk);
+
+/* mmap always result in a failure to give alloc functions a chance to recover
+ */
+static long default_mmap(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_mmap) {
+    return (long)-1;
+  }
+
+  *(context->processed) = 1;
+  return (long)-1;
+}
+weak_alias(default_mmap, __ckb_hijack_mmap);
+
+/* set_tid_address is an always success with 0 as return result
+ */
+static long default_set_tid_address(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_set_tid_address) {
+    return (long)-1;
+  }
+
+  *(context->processed) = 1;
+  *((int *)context->a) = 0;
+  return 0;
+}
+
+/* ioctl is tested when writing to stdout
+ */
+static long default_ioctl(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_ioctl) {
+    return (long)-1;
+  }
+
+  int fd = (int)context->a;
+  if (fd != 1 && fd != 2) {
+    /* Only ioctl to stdout/stderr is processed */
+    return (long)-1;
+  }
+  int op = (int)context->b;
+  if (op != TIOCGWINSZ) {
+    return (long)-1;
+  }
+
+  struct winsize *wsz = (struct winsize *)context->c;
+  wsz->ws_row = 80;
+  wsz->ws_col = 25;
+  wsz->ws_xpixel = 14;
+  wsz->ws_ypixel = 14;
+  *(context->processed) = 1;
+  return 0;
+}
+weak_alias(default_ioctl, __ckb_hijack_ioctl);
+
+/* This shortcut allows us to skip one level of recursion
+ */
+static inline long ckb_debug(char *buffer) {
+  register long a7 __asm__("a7") = 2177;
+  register long a0 __asm__("a0") = (long)buffer;
+  __asm_syscall("r"(a7), "0"(a0))
+}
+
+/* writev result is reinterpreted to ckb_debug syscall
+ */
+static long default_writev(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_writev) {
+    return (long)-1;
+  }
+
+  int fd = (int)context->a;
+  if (fd != 1 && fd != 2) {
+    /* Only writev to stdout/stderr is processed */
+    return (long)-1;
+  }
+
+  *(context->processed) = 1;
+  const struct iovec *iov = (const struct iovec *)context->b;
+  int iovcnt = (int)context->c;
+
+  ssize_t total = 0;
+  for (int i = 0; i < iovcnt; i++) {
+    size_t written = 0;
+    while (written < iov[i].iov_len) {
+      char buffer[1025];
+      size_t wrote = iov[i].iov_len - written;
+      if (wrote > 1024) {
+        wrote = 1024;
+      }
+      memcpy(buffer, &((char *)iov[i].iov_base)[written], wrote);
+      buffer[wrote] = '\0';
+      ckb_debug(buffer);
+      written += wrote;
+    }
+    total += iov[i].iov_len;
+  }
+  return total;
+}
+weak_alias(default_writev, __ckb_hijack_writev);
+
+hidden long default_hijack_syscall(long n, long a, long b, long c, long d,
+                                   long e, long f, int *processed) {
+  struct syscall_context context = {.n = n,
+                                    .a = a,
+                                    .b = b,
+                                    .c = c,
+                                    .d = d,
+                                    .e = e,
+                                    .f = f,
+                                    .processed = processed};
+
+  long code = __ckb_hijack_brk(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+  code = __ckb_hijack_mmap(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+  code = __ckb_hijack_writev(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+  code = __ckb_hijack_ioctl(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+  code = default_set_tid_address(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+
+  return (long)-1;
+}
+weak_alias(default_hijack_syscall, __ckb_hijack_syscall);
