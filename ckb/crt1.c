@@ -10,12 +10,15 @@
 int ENTRYPOINT(int, char **, char **);
 
 void __init_tls(size_t *);
+void __libc_start_init(void);
 
 /* A simpler entrypoint that suits CKB's needs */
 void _start_c(long *p) {
   int argc = p[0];
   char **argv = (void *)(p + 1);
   __init_tls(0);
+  __libc_start_init();
+
   int c = ENTRYPOINT(argc, argv, 0);
   for (;;) __syscall(SYS_exit, c);
 }
