@@ -2,10 +2,10 @@
 set -ex
 
 CLANG="${CLANG:-clang-18}"
-BASE_FLAGS="--target=riscv64 -march=rv64imc_zba_zbb_zbc_zbs -DPAGE_SIZE=4096"
+BASE_CFLAGS="${BASE_CFLAGS:---target=riscv64 -march=rv64imc_zba_zbb_zbc_zbs -DPAGE_SIZE=4096 -O3}"
 
 mkdir -p release
-CC="${CLANG}" CFLAGS="${BASE_FLAGS}" \
+CC="${CLANG}" CFLAGS="${BASE_CFLAGS}" \
   ./configure \
     --target=riscv64-linux-musl \
     --disable-shared \
@@ -18,8 +18,8 @@ rm -rf release/lib/libgcc.a
 
 CKB_FILES=("crt1" "hijack_syscall")
 for f in ${CKB_FILES[@]}; do
-  $CLANG $BASE_FLAGS \
-    -nostdinc -O2 \
+  $CLANG $BASE_CFLAGS \
+    -nostdinc \
     -I./arch/riscv64 -I./arch/generic -Iobj/src/internal -I./src/include -I./src/internal -Iobj/include -I./include \
     -Wall -Werror \
     -c ckb/$f.c -o release/$f.o
