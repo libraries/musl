@@ -4,6 +4,7 @@
 #include <sys/uio.h>
 
 #include "bits/syscall.h"
+#include "sys/mman.h"
 #include "syscall_arch.h"
 
 struct syscall_context {
@@ -57,6 +58,23 @@ static long default_mmap(void *c) {
   return (long)-1;
 }
 weak_alias(default_mmap, __ckb_hijack_mmap);
+
+/* madvise with MADV_DONTNEED will be ignored, others will not be processed
+ */
+static long default_madvise(void *c) {
+  struct syscall_context *context = (struct syscall_context *)c;
+
+  if (context->n != SYS_madvise) {
+    return (long)-1;
+  }
+  if (context->c != MADV_DONTNEED) {
+    return (long)-1;
+  }
+
+  *(context->processed) = 1;
+  return (long)0;
+}
+weak_alias(default_madvise, __ckb_hijack_madvise);
 
 /* set_tid_address is an always success with 0 as return result
  */
@@ -176,6 +194,10 @@ hidden long default_hijack_syscall(long n, long a, long b, long c, long d,
     return code;
   }
   code = default_set_tid_address(&context);
+  if (*(context.processed) != 0) {
+    return code;
+  }
+  code = __ckb_hijack_madvise(&context);
   if (*(context.processed) != 0) {
     return code;
   }
