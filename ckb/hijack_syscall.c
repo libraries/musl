@@ -157,7 +157,12 @@ static long default_writev(void *c) {
       }
       memcpy(buffer, &((char *)iov[i].iov_base)[written], wrote);
       buffer[wrote] = '\0';
-      ckb_debug(buffer);
+      if (wrote >= 1 && buffer[wrote - 1] == '\n') {
+        buffer[wrote - 1] = '\0';
+      }
+      if (buffer[0] != '\0') {
+        ckb_debug(buffer);
+      }
       written += wrote;
     }
     total += iov[i].iov_len;
